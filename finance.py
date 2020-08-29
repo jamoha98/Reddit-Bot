@@ -1,118 +1,90 @@
+# importing libraries
 import datetime as dt
-import matplotlib.pyplot as plt
-#from matplotlib import style
-import pandas as pd
 import pandas_datareader.data as web
 import praw
 import bs4 as bs
 import pickle
 import requests
-import os
+import argparse
 
+# Command line parser to accept credentials
+parser = argparse.ArgumentParser(description='Reddit Bot Credentials')
+parser.add_argument('Credentials', type=str, nargs=4,
+                    help='Enter Credentials in this order with space in between: Username, Password, Client ID, Client Secret')
+args = parser.parse_args().credentials
+
+
+# Checks if the ticker is in the S&P500
 def check_tickers(oneticker):
-    resp = requests.get('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    # Webscrapes Wikipedia page of S&P500
+    resp = requests.get(
+        'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
     soup = bs.BeautifulSoup(resp.text, "lxml")
-    table = soup.find('table', {'class':'wikitable sortable'})
+    table = soup.find('table', {'class': 'wikitable sortable'})
     tickers = []
+    # Makes list of tickers from S&P500 companies
     for row in table.findAll('tr')[1:]:
         ticker = row.findAll('td')[0].text
         tickers.append(ticker)
-        
-  # with open("sp500tickers.pickle", "wb") as f:
-  #      pickle.dump(tickers, f)
+    pickle.dump(tickers)
 
-    last = False
+    # check if the ticker requested is in the list
     for x in tickers:
         if x == oneticker:
             return True
-    return last
-    
-        
-def check_list(alltickers, oneticker):
-    for a in 500:
-        print(a)
-        if oneticker == alltickers[a]:
-            print(a)
-            return true
-        else:
-            return false
+    return False
 
+
+# API request from yahoo finance to get last closing price
 def getquote(company):
-    print('company is')
-    print(company)
-    start = dt.datetime(2000,1,1)
+    start = dt.datetime(2000, 1, 1)
     time = dt.datetime.now()
-    df = web.DataReader(company, 'yahoo',start, time)
-    print('not printing right')
-    print(df.tail(1).Close)
-    abc = df.tail(1).Close
-    return abc
-    
-def authenticate():
-    reddit = praw.Reddit(username='redditbot54321', password='superheroyo', client_id='0g1vLWnW_cUR4A', client_secret='rBvEc35KeH82VxphZ1Hv5Hnwhj8', user_agent='This is a bot')
+    df = web.DataReader(company, 'yahoo', start, time)
+    closing_price = df.tail(1).Close
+    return closing_price
 
+
+# reddit authentification, takes in user command line credentials
+def authenticate():
+    reddit = praw.Reddit(username=args[0], password=args[1], client_id=args[2],
+                         client_secret=args[3], user_agent='This is a bot')
+
+    '''my personal client_id = 0g1vLWnW_cUR4A
+    my personal client_secret = rBvEc35KeH82VxphZ1Hv5Hnwhj8'''
     return reddit
 
 
+# Running the bot, if the keyphrase is in new comments then check if ticker is in S&P500 or not and give response
 def run_bot(reddit, keyphrase):
     for comment in reddit.subreddit('investing').comments(limit=40):
         if keyphrase in comment.body:
-            
+
             oneticker = comment.body.replace(keyphrase, '')
-            oneticker = oneticker.replace(' ','')
-            
+            oneticker = oneticker.replace(' ', '')
+
             try:
-               # alltickers = check_tickers()
-                print(oneticker)
-                if check_tickers(oneticker)==True:
+                if check_tickers(oneticker) == True:
+                    # Comment the latest closing price if ticker is in the S&P500 list
                     quote = str(getquote(oneticker))
                     quote = quote[15:]
                     quote = quote[:10]
-                    reply = "The latest closing price of "+oneticker+" is "+quote
-                    print(reply)
+                    reply = "The latest closing price of " + oneticker + " is " + quote
                     comment.reply(reply)
-                    print("This is a bot")
-                else:
-                    reply = "This is not a company in the S&P 500"
-                    #comment.reply(reply)
-                    print('failed')
-                    print("This is a bot")
-            except:
-                print("no frequent")
 
+                else:
+                    # Comment if company not in the list
+                    reply = "This is not a company in the S&P 500"
+                    comment.reply(reply)
+            except:
+                print("Failed")
+
+
+# main fucntion
 def main():
-    #replied = get_replied()
     keyphrase = '!quotethis'
     reddit = authenticate()
     run_bot(reddit, keyphrase)
-        
+
+
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-
-
-#style.use('ggplot')
-##start = dt.datetime(2000,1,1)
-##end = dt.datetime(2018, 9,16)
-##
-##df = web.DataReader('TSLA', 'yahoo', start, end)
-##df.to_csv('tsla.csv')
-##start = dt.datetime(2000,1,1)
-##time = dt.datetime.now()
-##df = web.DataReader('TSLA', 'yahoo',start, time)
-##print("As of ")
-##print(time)
-##print("the stock price is ")
-##print(df.tail(1).Close)
-##df = pd.read_csv('tsla.csv', parse_dates=True, index_col=0)
-##print(df.tail(1))
-##
-##df.plot()
-##plt.show()
-
-
